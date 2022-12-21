@@ -1,0 +1,15 @@
+target/
+null/
+.settings
+.project
+.classpath
+
+.idea
+*.iml
+
+.metals
+.bloop
+
+ddata*/
+
+.scannerwork/
