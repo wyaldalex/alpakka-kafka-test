@@ -19,7 +19,7 @@ object TestKafkaSimpleProducer extends App {
   implicit val system = ActorSystem("kafkaProducerSystem")
   implicit val materializer = ActorMaterializer()
 
-  val testTopic = "testTopic1"
+  val testTopic = "TestTopic1"
   val bootStrapServers = "localhost:9092"
 
   val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)

@@ -29,7 +29,7 @@ object ProducerAppSerialization extends App {
   implicit val system = ActorSystem("kafkaProducerSystem")
   implicit val materializer = ActorMaterializer()
 
-  val testTopic = "serializationTopic"
+  val testTopic = "TestTopic2"
   val bootStrapServers = "localhost:9092"
 
   val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
@@ -61,7 +61,7 @@ object ConsumerAppSerialization extends App {
 
   implicit val system = ActorSystem("kafkaConsumerSystem")
   implicit val materializer = ActorMaterializer()
-  val testTopic = "serializationTopic"
+  val testTopic = "TestTopic2"
   val bootStrapServers = "localhost:9092"
 
   val config = system.settings.config.getConfig("akka.kafka.consumer")

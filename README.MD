@@ -12,8 +12,9 @@
 
 - version 2.0: https://doc.akka.io/docs/alpakka-kafka/2.0.0/consumer.html
 
-# Run docker image in docker/
+# Run docker image in docker
 - docker-compose -f kafka-docker-compose.yml up
+- default topics created: TestTopic1, TestTopic2 (check the docker-compose file)
 
-# Create topic 
-- Dummy test topic name: testTopic1 (created manually as of now)
+# Connections info
+- Zookeeper port: 2181

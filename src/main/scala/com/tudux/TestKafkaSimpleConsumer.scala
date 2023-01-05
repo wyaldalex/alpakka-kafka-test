@@ -18,7 +18,7 @@ object TestKafkaSimpleConsumer extends App {
 
   implicit val system = ActorSystem("kafkaConsumerSystem")
   implicit val materializer = ActorMaterializer()
-  val testTopic = "testTopic1"
+  val testTopic = "TestTopic1"
   val bootStrapServers = "localhost:9092"
 
   val config = system.settings.config.getConfig("akka.kafka.consumer")
