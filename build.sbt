@@ -10,6 +10,7 @@ lazy val scalaTestVersion = "3.0.5"
 resolvers += "confluent" at "https://packages.confluent.io/maven/"
 
 libraryDependencies ++= Seq(
+  "com.typesafe.akka" %% "akka-actor-typed"           % akkaVersion,
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion,

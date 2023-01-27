@@ -4,13 +4,13 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl.{Committer, Consumer}
-import akka.kafka.{CommitterSettings, ConsumerSettings, Subscriptions}
+import akka.kafka.{CommitterSettings, ConsumerMessage, ConsumerSettings, Subscriptions}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Keep
+import akka.stream.scaladsl.{Flow, Keep, Sink}
 import io.confluent.kafka.serializers.{AbstractKafkaAvroSerDeConfig, KafkaAvroDeserializer}
 import org.apache.avro.generic.GenericRecord
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
-import org.apache.kafka.common.serialization.{Deserializer, StringDeserializer}
+import org.apache.kafka.common.serialization.Deserializer
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -20,9 +20,8 @@ import scala.jdk.CollectionConverters.mapAsJavaMapConverter
 //import spray everything
 import spray.json._
 
-case class PaymentEntry(payment_id: Int, notes: String, total: Double , beneficiary_id: Int, insurance_id: Int, insurance_type: Int)
 
-object AvroConsumerApp extends App with DefaultJsonProtocol {
+object AvroConsumerAggregationApp extends App with DefaultJsonProtocol {
 
   private val log = LoggerFactory.getLogger(AvroConsumerApp.getClass)
 
@@ -50,32 +49,42 @@ object AvroConsumerApp extends App with DefaultJsonProtocol {
       .withBootstrapServers(bootStrapServers)
       .withGroupId("alpakka.group97.avro")
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+      //.withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
+      .withProperty(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "10")
 
   implicit val paymentEntryFormat = jsonFormat6(PaymentEntry)
-  def simpleConsumption(key: String, value: GenericRecord): Future[Done] = {
-    log.info(s"Consuming message with key $key and value ${value}")
-    val beforeRecord = value.get("before") match {
-      case null => Left("Empty Before Record")
-      case x => Right(x.toString.parseJson.convertTo[PaymentEntry])
-    }
 
-    log.info(s"Before type: $beforeRecord")
+  def transformToPayment(msg: ConsumerRecord[GenericRecord, GenericRecord], value: GenericRecord): Tuple2[ConsumerRecord[GenericRecord, GenericRecord],PaymentEntry] = {
     val afterRecord = value.get("after").toString.parseJson.convertTo[PaymentEntry]
-    //log.info(s"Parsed Before record: [${beforeRecord.toString}]")
-    log.info(s"Parsed After record: [${afterRecord.toString}]")
-    Future.successful(Done)
+    (msg,afterRecord)
   }
 
+
   val committerSettings = CommitterSettings(system)
-  val control: DrainingControl[Done] =
+
+  val AckMessage = AggregatorActor.Ack
+  val InitMessage = AggregatorActor.StreamInitialized
+  val OnCompleteMessage = AggregatorActor.StreamCompleted
+  val onErrorMessage = (ex: Throwable) => AggregatorActor.StreamFailure(ex)
+
+  val receiver = system.actorOf(AggregatorActor.props(AckMessage))
+
+  val aggregatorSink = Sink.actorRefWithAck(
+    receiver,
+    onInitMessage = InitMessage,
+    ackMessage = AckMessage,
+    onCompleteMessage = OnCompleteMessage,
+    onFailureMessage = onErrorMessage)
+
+  val (consumerControl, streamComplete) =
     Consumer
-      .committableSource(consumerSettings, Subscriptions.topics(testTopic))
-      .mapAsync(1) { msg =>
-        simpleConsumption(msg.record.key.toString, msg.record.value)
-          .map(_ => msg.committableOffset)
-      }
-      .toMat(Committer.sink(committerSettings))(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
+      .plainSource(consumerSettings,
+        Subscriptions.topics(testTopic))
+      .map(msg => transformToPayment(msg, msg.value()))
+      //.map(msg => (msg,Done))
+      .toMat(aggregatorSink)(Keep.both)
       .run()
+
+  //consumerControl.shutdown()
 
 }
